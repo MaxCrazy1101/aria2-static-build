@@ -445,8 +445,7 @@ get_aria2() {
 }
 
 patch_aria2() {
-  git clone https://github.com/MaxCrazy1101/aria2-static-build/ ../aria2-static-build
-  git apply ../aria2-static-build/patch/*.patch
+  git apply ${SELF_DIR}/patch/*.patch
 }
 
 strip_aria2() {
