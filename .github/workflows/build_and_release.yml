@@ -63,6 +63,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        
       - uses: actions/cache@v4
         id: cache
         with:
@@ -70,6 +71,7 @@ jobs:
           key: build-cache-${{ matrix.cross_host }}-${{ github.sha }}
           restore-keys: |
             build-cache-${{ matrix.cross_host }}-
+
       - name: compile
         env:
           CROSS_HOST: "${{ matrix.cross_host }}"
@@ -80,6 +82,7 @@ jobs:
             echo "ARIA2_VER=${ARIA2_VER}" >> $GITHUB_ENV
           fi
           "${GITHUB_WORKSPACE}/build.sh"
+
       - name: zip archiving
         env:
           CROSS_HOST: "${{ matrix.cross_host }}"
@@ -93,6 +96,7 @@ jobs:
           fi
           echo "ARCHIVE_NAME=${ARCHIVE_NAME}" >> $GITHUB_ENV
           zip -j9v "/tmp/${ARCHIVE_NAME}" "${GITHUB_WORKSPACE}"/aria2c*
+
       - name: Prerelease assets
         if: github.event_name == 'push' || github.event_name == 'schedule'
         uses: softprops/action-gh-release@v1
@@ -104,6 +108,7 @@ jobs:
           name: Continuous build
           body_path: "${{ github.workspace }}/build_info.md"
           append_body: true
+
       - name: Upload Github Assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
