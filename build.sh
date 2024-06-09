@@ -315,7 +315,13 @@ prepare_ssl() {
       mkdir -p "/usr/src/openssl-${openssl_ver}"
       tar -zxf "${DOWNLOADS_DIR}/openssl-${openssl_ver}.tar.gz" --strip-components=1 -C "/usr/src/openssl-${openssl_ver}"
       cd "/usr/src/openssl-${openssl_ver}"
-      ./Configure -static --cross-compile-prefix="${CROSS_HOST}-" --prefix="${CROSS_PREFIX}" "${OPENSSL_COMPILER}" --openssldir=/etc/ssl
+      ./Configure \
+        -static \
+        --cross-compile-prefix="${CROSS_HOST}-" \
+        --prefix="${CROSS_PREFIX}" \
+        "${OPENSSL_COMPILER}" \
+        --openssldir=/etc/ssl \
+        no-tests
       make -j$(nproc)
       make install_sw
       openssl_ver="$(grep Version: "${CROSS_PREFIX}"/lib*/pkgconfig/openssl.pc)"
