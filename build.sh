@@ -316,10 +316,9 @@ prepare_ssl() {
       tar -zxf "${DOWNLOADS_DIR}/openssl-${openssl_ver}.tar.gz" --strip-components=1 -C "/usr/src/openssl-${openssl_ver}"
       cd "/usr/src/openssl-${openssl_ver}"
       ./Configure \
-        -static \
+        "${OPENSSL_COMPILER}" \
         --cross-compile-prefix="${CROSS_HOST}-" \
         --prefix="${CROSS_PREFIX}" \
-        "${OPENSSL_COMPILER}" \
         --openssldir=/etc/ssl \
         no-tests
       make -j$(nproc)
@@ -358,6 +357,7 @@ prepare_sqlite() {
     retry wget -cT10 -O "${DOWNLOADS_DIR}/sqlite-${sqlite_tag}.tar.gz.part" "${sqlite_latest_url}"
     mv -fv "${DOWNLOADS_DIR}/sqlite-${sqlite_tag}.tar.gz.part" "${DOWNLOADS_DIR}/sqlite-${sqlite_tag}.tar.gz"
   fi
+  
   mkdir -p "/usr/src/sqlite-${sqlite_tag}"
   tar -zxf "${DOWNLOADS_DIR}/sqlite-${sqlite_tag}.tar.gz" --strip-components=1 -C "/usr/src/sqlite-${sqlite_tag}"
   cd "/usr/src/sqlite-${sqlite_tag}"
@@ -365,7 +365,14 @@ prepare_sqlite() {
     ln -sf mksourceid.exe mksourceid
     SQLITE_EXT_CONF="config_TARGET_EXEEXT=.exe"
   fi
-  ./configure --build="${BUILD_ARCH}" --host="${CROSS_HOST}" --prefix="${CROSS_PREFIX}" --enable-static --disable-shared ${SQLITE_EXT_CONF}
+  ./configure \
+    --host="${CROSS_HOST}" \
+    --build="${BUILD_ARCH}" \
+    --prefix="${CROSS_PREFIX}" \
+    --enable-static \
+    --disable-shared \
+    --disable-dynamic-extensions \
+    ${SQLITE_EXT_CONF}
   make -j$(nproc)
   make install
   sqlite_ver="$(grep Version: "${CROSS_PREFIX}/lib/pkgconfig/"sqlite*.pc)"
@@ -402,15 +409,77 @@ prepare_libssh2() {
     retry wget -cT10 -O "${DOWNLOADS_DIR}/libssh2-${libssh2_tag}.tar.gz.part" "${libssh2_latest_url}"
     mv -fv "${DOWNLOADS_DIR}/libssh2-${libssh2_tag}.tar.gz.part" "${DOWNLOADS_DIR}/libssh2-${libssh2_tag}.tar.gz"
   fi
+  
   mkdir -p "/usr/src/libssh2-${libssh2_tag}"
   tar -zxf "${DOWNLOADS_DIR}/libssh2-${libssh2_tag}.tar.gz" --strip-components=1 -C "/usr/src/libssh2-${libssh2_tag}"
   cd "/usr/src/libssh2-${libssh2_tag}"
-  ./configure --host="${CROSS_HOST}" --prefix="${CROSS_PREFIX}" --enable-static --disable-shared --enable-silent-rules
+  ./configure \
+    --host="${CROSS_HOST}" \
+    --prefix="${CROSS_PREFIX}" \
+    --enable-static \
+    --disable-shared \
+    --disable-examples-build \
+    --enable-silent-rules
   make -j$(nproc)
   make install
   unset CFLAGS
   libssh2_ver="$(grep Version: "${CROSS_PREFIX}/lib/pkgconfig/libssh2.pc")"
   echo "- libssh2: ${libssh2_ver}, source: ${libssh2_latest_url:-cached libssh2}" >>"${BUILD_INFO}"
+}
+
+prepare_libexpat() {
+  libexpat_tag="$(retry wget -qO- --compression=auto https://api.github.com/repos/libexpat/libexpat/releases \| jq -r "'.[0].tag_name'")"
+  libexpat_latest_url="https://github.com/libexpat/libexpat/archive/refs/tags/${libexpat_tag}.tar.gz"
+  if [ x"${USE_CHINA_MIRROR}" = x1 ]; then
+      libexpat_latest_url="https://mirror.ghproxy.com/${libexpat_latest_url}"
+  fi
+  if [ ! -f "${DOWNLOADS_DIR}/libexpat-${libexpat_tag}.tar.gz" ]; then
+    retry wget -cT10 -O "${DOWNLOADS_DIR}/libexpat-${libexpat_tag}.tar.gz.part" "${libexpat_latest_url}"
+    mv -fv "${DOWNLOADS_DIR}/libexpat-${libexpat_tag}.tar.gz.part" "${DOWNLOADS_DIR}/libexpat-${libexpat_tag}.tar.gz"
+  fi
+  mkdir -p "/usr/src/libexpat-${libexpat_tag}"
+  tar -zxf "${DOWNLOADS_DIR}/libexpat-${libexpat_tag}.tar.gz" --strip-components=1 -C "/usr/src/libexpat-${libexpat_tag}"
+  cd "/usr/src/libexpat-${libexpat_tag}"
+  cd expat
+  ./buildconf.sh
+  ./configure \
+    --host="${CROSS_HOST}" \
+    --prefix="${CROSS_PREFIX}" \
+    --enable-static \
+    --disable-shared \
+    --without-examples \
+    --without-tests \
+    --without-docbook
+  make -j$(nproc)
+  make install
+  expat_ver="$(grep Version: "${CROSS_PREFIX}/lib/pkgconfig/expat.pc")"
+  echo "- libexpat: ${libexpat_ver}, source: ${libexpat_latest_url:-cached libexpat}" >>"${BUILD_INFO}"
+}
+
+prepare_jemalloc() {
+  jemalloc_tag="$(retry wget -qO- --compression=auto https://api.github.com/repos/jemalloc/jemalloc/releases \| jq -r "'.[0].tag_name'")"
+  jemalloc_latest_url="https://github.com/jemalloc/jemalloc/archive/refs/tags/${jemalloc_tag}.tar.gz"
+  if [ x"${USE_CHINA_MIRROR}" = x1 ]; then
+      jemalloc_latest_url="https://mirror.ghproxy.com/${jemalloc_latest_url}"
+  fi
+  if [ ! -f "${DOWNLOADS_DIR}/jemalloc-${jemalloc_tag}.tar.gz" ]; then
+    retry wget -cT10 -O "${DOWNLOADS_DIR}/jemalloc-${jemalloc_tag}.tar.gz.part" "${jemalloc_latest_url}"
+    mv -fv "${DOWNLOADS_DIR}/jemalloc-${jemalloc_tag}.tar.gz.part" "${DOWNLOADS_DIR}/jemalloc-${jemalloc_tag}.tar.gz"
+  fi
+  mkdir -p "/usr/src/jemalloc-${jemalloc_tag}"
+  tar -zxf "${DOWNLOADS_DIR}/jemalloc-${jemalloc_tag}.tar.gz" --strip-components=1 -C "/usr/src/jemalloc-${jemalloc_tag}"
+  cd "/usr/src/jemalloc-${jemalloc_tag}"
+  ./configure \
+    --host="${CROSS_HOST}" \
+    --prefix="${CROSS_PREFIX}" \
+    --enable-static \
+    --disable-shared \
+    --disable-stats \
+    --enable-prof
+  make -j$(nproc)
+  make install
+  jemalloc_ver="$(grep Version: "${CROSS_PREFIX}/lib/pkgconfig/jemalloc.pc")"
+  echo "- jemalloc: ${jemalloc_ver}, source: ${jemalloc_latest_url:-cached jemalloc}" >>"${BUILD_INFO}"
 }
 
 build_aria2() {
@@ -422,7 +491,24 @@ build_aria2() {
   # else
   #   ARIA2_EXT_CONF='--with-ca-bundle=/etc/ssl/certs/ca-certificates.crt'
   fi
-  ./configure --host="${CROSS_HOST}" --prefix="${CROSS_PREFIX}" --enable-static --disable-shared --enable-silent-rules ARIA2_STATIC=yes ${ARIA2_EXT_CONF}
+  ./configure \
+  --host="${CROSS_HOST}" \
+  --prefix="${CROSS_PREFIX}" \
+  --with-libz \
+  --with-libcares \
+  --with-libexpat \
+  --without-libxml2 \
+  --without-libnettle \
+  --without-gnutls \
+  --without-libgmp \
+  --with-libcares \
+  --with-libssh2 \
+  --with-sqlite3 \
+  --enable-static \
+  --disable-shared \
+  --enable-silent-rules \
+  ARIA2_STATIC=yes \
+  ${ARIA2_EXT_CONF}
   make -j$(nproc)
   make install
   echo "- aria2: source: ${aria2_latest_url:-cached aria2}" >>"${BUILD_INFO}"
@@ -481,11 +567,12 @@ test_build() {
 prepare_cmake
 prepare_ninja
 prepare_zlib
+prepare_libexpat
+prepare_c_ares
 prepare_xz
 prepare_ssl
-prepare_libxml2
+# prepare_libxml2
 prepare_sqlite
-prepare_c_ares
 prepare_libssh2
 
 get_aria2
